@@ -1,9 +1,12 @@
+import dotenv from "dotenv"
+dotenv.config({})
+
+
+
 import express from "express"
 import cookieParser from "cookie-parser"
 import cors from "cors"
 import errorMiddleware from "./Middlewares/error.middleware.js";
-import { AsyncMiddleware } from "./Middlewares/asyncMiddleware.js";
-import { QueryFromDb } from "./Utils/DbPromisify.js";
 
 
 const app = express();
@@ -16,15 +19,18 @@ app.use(cookieParser())
 //     credentials : true    
 // }))
 
-app.get("/", AsyncMiddleware(async(req,res,next) => {
-    const data = await QueryFromDb("select 8 from users")
-    res.json({data})
-}))
+// importing routes
+import userRouter from "./Routes/User/user.routes.js"
+import productRouter from "./Routes/Product/product.routes.js"
+
+app.use("/api/v1/users", userRouter)
+app.use("/api/v1/products", productRouter)
+
 
 app.use(errorMiddleware)
 
-app.listen(4000, () => {
-    console.log("db");
+app.listen(process.env.PORT, () => {
+    console.log(`Server Started at Port - ${process.env.PORT}.`);
 })
 
 export default app;
