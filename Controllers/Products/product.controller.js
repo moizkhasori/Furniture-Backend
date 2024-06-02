@@ -117,3 +117,134 @@ export const handleCreateNewproduct = async (req,res,next) => {
 }
 
 
+
+// category - subcategory - price range - color
+export const handleGetAllProducts = AsyncMiddleware(async (req,res,next) => {
+
+
+    const {
+        category,
+        subCategory,
+        minPrice,
+        maxPrice,
+        sort,
+        page = 1,
+        limit = 50
+    } = req.query; 
+    // why query, because its going to be a get request and we also need to pass some data
+
+
+    if(!category){
+        return next(new ErrorHandler("a category should must be provided!"))
+    }
+
+    // check if a valid category is provided
+    const categories = Object.keys(categoryArray);
+    if(!categories.includes(category)){
+        throw new ErrorHandler(`invalid category provided! supported categories are - ${categories}`, 400)
+    }
+
+    // check if a valid sub category is provided for a particular category
+    const subCategoryArray = categoryArray[category];
+    if(!subCategoryArray.includes(subCategory)){
+        throw new ErrorHandler(`invalid sub-category provided! supported sub-categories for category - ${category} are - ${subCategoryArray}`, 400)
+    }
+
+    if(minPrice && minPrice < 0){
+        return next(new ErrorHandler("minimum price cannot be less than 0.", 400))
+    }
+
+    if(maxPrice && maxPrice < 0){
+        return next(new ErrorHandler("maximum price cannot be less than 0.", 400))
+    }
+
+    if((minPrice && maxPrice) && (maxPrice < minPrice)){
+        return next(new ErrorHandler("maximum price cannot be less than minimum price!", 400))
+    }
+
+    if(sort){
+        const supportedSortOptions = ["price_asc", "price_desc", "most_selling", "latest"];
+        if(!supportedSortOptions.includes(sort)){
+            return next(new ErrorHandler("invalid sort option provided!", 400))
+        }
+    }
+
+    if(page<1){
+        return next(new ErrorHandler("page cannot be less than 0!", 400))
+    }
+
+    if((limit <= 0) || (limit > 50)){
+        return next(new ErrorHandler("limit should be in between 1-50!", 400))
+    }
+
+
+    let searchProductQuery = "Select * FROM product WHERE 1=1 ";
+    let searchProductArray = []
+
+
+    // find category id from category provided by user, first extract object, then the first value
+    let categoryId = await QueryFromDb("SELECT category_id FROM category WHERE category_name = ?", [category]);
+    categoryId = categoryId[0];
+    categoryId = Object.values(categoryId)[0];
+
+    searchProductQuery += "AND product_category_id = ? ";
+    searchProductArray.push(categoryId)
+
+    // adding sub category
+    if(subCategory){
+        let subCategoryId = await QueryFromDb("SELECT sub_category_id FROM sub_category WHERE sub_category_name = ?", [subCategory]);
+        subCategoryId = subCategoryId[0];
+        subCategoryId = Object.values(subCategoryId)[0];
+
+        searchProductQuery += "AND product_sub_category_id = ? ";
+        searchProductArray.push(subCategoryId)
+    }
+
+    if (minPrice){
+        searchProductQuery += "AND product_price >= ? ";
+        searchProductArray.push(minPrice)
+    }
+
+    if (maxPrice){
+        searchProductQuery += "AND product_price <= ? ";
+        searchProductArray.push(maxPrice)
+    }
+
+    switch (sort) {
+        case "price_asc":
+            searchProductQuery+= "ORDER BY product_price ASC "
+            break;
+        case "price_desc":
+            searchProductQuery+= "ORDER BY product_price DESC "
+            break;
+        case "latest":
+            searchProductQuery+= "ORDER BY timestamps DESC "
+            break;
+    
+        default:
+            break;
+    }
+
+    
+
+    const offset = (page - 1) * limit;
+
+    searchProductQuery+= "LIMIT ? OFFSET ?";
+    searchProductArray.push(Number(limit));
+    searchProductArray.push(Number(offset));
+
+    const executeQuery = await QueryFromDb(searchProductQuery, searchProductArray);
+
+    res.json({
+        success: true,
+        message: "data found below",
+        data: executeQuery
+    })
+})
+
+export const handleGetOneProduct = AsyncMiddleware(async () => {
+
+    
+
+})
+
